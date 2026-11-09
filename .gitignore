@@ -1,0 +1,14 @@
+# キー・秘密情報（コードや画面に出さない）
+.env
+.env.*
+!.env.example
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+.vercel/
+
+# OS・エディタ
+.DS_Store
+Thumbs.db
