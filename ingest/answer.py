@@ -62,16 +62,22 @@ def answer(question: str, top_k: int = 5) -> dict:
     return {"answer": body, "sources": sources}
 
 
-CITATION_RE = re.compile(r"[\s　]*出典[:：]\s*((?:\[\d+\][、,\s]*)+)\s*$")
+# 末尾の「出典：[1][3]」「（出典：[1]）」「[1][3]」など、書き方が揺れても読み取れるようにする
+TRAILING_CITATION_RE = re.compile(r"[\s　]*[（(]?\s*(?:出典[:：]?\s*)?(?:\[\d+\][、,・\s]*)+[）)]?\s*$")
 
 
 def split_citation(text: str, n_results: int) -> tuple[str, list[int]]:
-    """回答の末尾の「出典：[1][3]」を取り除き、使われた資料の番号（小さい順・重複なし）を返す。"""
-    m = CITATION_RE.search(text)
-    if not m:
-        return text, []
-    numbers = sorted({int(n) for n in re.findall(r"\[(\d+)\]", m.group(1)) if 1 <= int(n) <= n_results})
-    return text[: m.start()].rstrip(), numbers
+    """回答から出典の記号を取り除き、使われた資料の番号（小さい順・重複なし）を返す。"""
+    found: list[int] = []
+    body = text
+    m = TRAILING_CITATION_RE.search(body)
+    if m:
+        found += [int(n) for n in re.findall(r"\[(\d+)\]", m.group(0))]
+        body = body[: m.start()].rstrip()
+    # 文の途中に残った [n] も、出典として数えて取り除く
+    found += [int(n) for n in re.findall(r"\[(\d+)\]", body)]
+    body = re.sub(r"[ 	　]*\[\d+\]", "", body).strip()
+    return body, sorted({n for n in found if 1 <= n <= n_results})
 
 
 def format_source(r: dict) -> dict:
