@@ -52,6 +52,14 @@ PARAPHRASE = [
     ("USBメモリは使ってもいいですか？", "doc3", ["禁止"]),
     ("交通手当はいくらですか？", "doc2", None),  # 文書には「交通費」の規程のみ。どう答えるかを観察する（採点しない）
 ]
+# 言葉の違い（別物として扱う）：質問の用語は資料になく、近い別の項目だけがある。
+# 「同じものとして答えない」を守れているかを見る。（質問, 質問の用語, 近い項目, 出典の文書名の一部）
+NOT_SAME = [
+    ("交通手当はいくらですか？", "交通手当", "交通費", "doc2"),
+    ("接待手当の上限はいくらですか？", "接待手当", "接待交際費", "doc2"),
+    ("在宅勤務費は月いくらですか？", "在宅勤務費", "在宅勤務手当", "doc2/doc4"),
+]
+NOTE = "という記載は資料にありませんでした"
 NOT_IN_DOCS = [
     "育児休業の取得条件を教えてください。",
     "退職金はいくらもらえますか？",
@@ -119,6 +127,29 @@ def main() -> None:
         print(f"{'OK' if not problems else 'NG'} {q}\n   → {res['answer'][:90]}")
         for p in problems:
             print(f"   ★ {p}")
+
+    print("\n=== 言葉の違い（別物として扱う） ===")
+    for q, term, near, doc in NOT_SAME:
+        res = answer(q)
+        total += 1
+        text = res["answer"]
+        problems = []
+        if text == NOT_FOUND:
+            problems.append("近い項目があるのに、一文で断った（近い項目を案内できていない）")
+        else:
+            if NOTE not in text or text.index(NOTE) > 40:
+                problems.append(f"冒頭で「{term}{NOTE}」と言っていない（同じものとして答えた疑い）")
+            if near not in text:
+                problems.append(f"近い項目「{near}」を案内していない")
+            cited = " ".join(src["file_name"] for src in res["sources"])
+            if not any(h.strip() in cited for h in doc.split("/")):
+                problems.append(f"出典に {doc} がない（出典：{cited or 'なし'}）")
+        ng += bool(problems)
+        print(f"{'OK' if not problems else 'NG'} {q}\n   → {text}")
+        for src in res["sources"]:
+            print(f"   出典: {src['label']}")
+        for pr in problems:
+            print(f"   ★ {pr}")
 
     print("\n=== 記載なし（追加） ===")
     for q in NOT_IN_DOCS:
